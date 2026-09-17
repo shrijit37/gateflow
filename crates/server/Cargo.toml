@@ -1,0 +1,36 @@
+[package]
+name = "gateflow-server"
+description = "Gateflow gateway server: control-plane + data-plane"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "gateflow-server"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+async-stream.workspace = true
+axum.workspace = true
+bytes.workspace = true
+futures.workspace = true
+gateflow-engine.workspace = true
+gateflow-protocol.workspace = true
+http.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio-stream = "0.1"
+tower.workspace = true

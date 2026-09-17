@@ -1,0 +1,13 @@
+[package]
+name = "gateflow-protocol"
+description = "Protocol detection and SSE framing helpers for Gateflow"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bytes.workspace = true
+gateflow-engine.workspace = true
+http.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
