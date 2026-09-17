@@ -101,3 +101,9 @@ opencode.json               # LSP servers
 (default `sqlite://gateflow.db`), `GATEFLOW_CORS_ORIGINS`,
 `GATEFLOW_BODY_LIMIT_MB` (100), `GATEFLOW_PEEK_BYTES` (4096),
 `GATEFLOW_CONNECT_TIMEOUT_MS` (10000), `GATEFLOW_TIMEOUT_MS` (120000).
+
+## Contributing & governance
+
+- Workflow: `CONTRIBUTING.md` (agent working agreement: `AGENTS.md`, `CLAUDE.md`)
+- Conduct: `CODE_OF_CONDUCT.md` · Security: `SECURITY.md`
+- License: MIT — see `LICENSE`.

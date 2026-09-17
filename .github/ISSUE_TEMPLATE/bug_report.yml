@@ -1,0 +1,39 @@
+name: Bug report
+description: Something broken in the gateway, engine, or UI
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Commit / version
+      placeholder: main @ <sha>, or 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [data-plane, control-plane, engine, protocol, web-ui, docs, other]
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Commands + configs. For streaming bugs include a minimal upstream and the differing bytes.
+      placeholder: |
+        1. Deploy workflow with egress -> http://127.0.0.1:9099/chat
+        2. curl -N -X POST /flow/<slug> -d '{...}'
+        3. Expected … / got …
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      placeholder: |
+        rustc --version:
+        node --version:
+        OS:
+    validations:
+      required: false
