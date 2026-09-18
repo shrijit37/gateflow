@@ -14,6 +14,6 @@ pub mod frame;
 pub mod node;
 
 pub use dag::{DagError, Edge, NodeDef, WorkflowDag};
-pub use executor::{compile, Executable, NodeFactory};
-pub use frame::{bytes_to_frames, frames_to_bytes, FrameStream, Protocol, StreamFrame, StreamHead};
+pub use executor::{Executable, NodeFactory, compile};
+pub use frame::{FrameStream, Protocol, StreamFrame, StreamHead, bytes_to_frames, frames_to_bytes};
 pub use node::{ExecCtx, NodeError, NodeKind, StreamNode};

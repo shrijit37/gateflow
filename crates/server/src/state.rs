@@ -89,7 +89,10 @@ impl AppState {
             },
         });
 
-        self.cache.write().await.insert(row.slug.clone(), deployed.clone());
+        self.cache
+            .write()
+            .await
+            .insert(row.slug.clone(), deployed.clone());
         Ok(deployed)
     }
 

@@ -35,8 +35,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/healthz", axum::routing::get(routes::healthz))
         .route(
             "/api/workflows",
-            axum::routing::get(routes::list_workflows)
-                .post(routes::create_workflow),
+            axum::routing::get(routes::list_workflows).post(routes::create_workflow),
         )
         .route(
             "/api/workflows/{id}",
@@ -54,8 +53,9 @@ pub fn build_router(state: AppState) -> Router {
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
         .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(tower_http::trace::DefaultMakeSpan::new().level(tracing::Level::INFO)),
+            TraceLayer::new_for_http().make_span_with(
+                tower_http::trace::DefaultMakeSpan::new().level(tracing::Level::INFO),
+            ),
         )
 }
 

@@ -112,7 +112,10 @@ impl NodeFactory for Registry {
             NodeKind::Ingress => {
                 let cfg: IngressConfig = serde_json::from_value(def.config.clone())
                     .map_err(|e| DagError::InvalidConfig(def.id.clone(), e.to_string()))?;
-                Ok(Arc::new(IngressNode { id: def.id.clone(), cfg }))
+                Ok(Arc::new(IngressNode {
+                    id: def.id.clone(),
+                    cfg,
+                }))
             }
             NodeKind::Egress => {
                 let cfg: EgressConfig = serde_json::from_value(def.config.clone())
@@ -123,10 +126,9 @@ impl NodeFactory for Registry {
                         "upstream_url is required".into(),
                     ));
                 }
-                let url = cfg
-                    .upstream_url
-                    .parse::<reqwest::Url>()
-                    .map_err(|e| DagError::InvalidConfig(def.id.clone(), format!("upstream_url: {e}")))?;
+                let url = cfg.upstream_url.parse::<reqwest::Url>().map_err(|e| {
+                    DagError::InvalidConfig(def.id.clone(), format!("upstream_url: {e}"))
+                })?;
                 Ok(Arc::new(EgressNode {
                     id: def.id.clone(),
                     cfg,
@@ -212,10 +214,10 @@ impl StreamNode for EgressNode {
                 if this.cfg.headers.contains_key(name.as_str()) {
                     continue; // explicit wins
                 }
-                if let Some(value) = ctx2.request_headers.get(name) {
-                    if let Ok(v) = value.to_str() {
-                        builder = builder.header(name, v);
-                    }
+                if let Some(value) = ctx2.request_headers.get(name)
+                    && let Ok(v) = value.to_str()
+                {
+                    builder = builder.header(name, v);
                 }
             }
             if !this.cfg.headers.contains_key("accept") && !ctx2.request_headers.contains_key("accept") {

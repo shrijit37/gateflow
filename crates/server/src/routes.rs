@@ -1,9 +1,9 @@
 //! Control-plane: workflow CRUD + deploy. JSON over HTTP, no hot path here.
 
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use tracing::{debug, warn};
 
 use crate::models::{
@@ -18,28 +18,23 @@ use crate::state::AppState;
 
 pub async fn list_workflows(State(state): State<AppState>) -> Response {
     match state.db.list_workflows().await {
-        Ok(rows) => Json(
-            rows.iter()
-                .map(WorkflowSummary::from)
-                .collect::<Vec<_>>(),
-        )
-        .into_response(),
+        Ok(rows) => {
+            Json(rows.iter().map(WorkflowSummary::from).collect::<Vec<_>>()).into_response()
+        }
         Err(e) => server_error(e.to_string()),
     }
 }
 
 pub async fn get_workflow(State(state): State<AppState>, Path(id): Path<String>) -> Response {
     match state.db.get_workflow(&id).await {
-        Ok(Some(row)) => {
-            match serde_json::from_str(&row.definition) {
-                Ok(def) => Json(WorkflowDetail {
-                    summary: WorkflowSummary::from(&row),
-                    definition: def,
-                })
-                .into_response(),
-                Err(e) => server_error(format!("corrupt definition: {e}")),
-            }
-        }
+        Ok(Some(row)) => match serde_json::from_str(&row.definition) {
+            Ok(def) => Json(WorkflowDetail {
+                summary: WorkflowSummary::from(&row),
+                definition: def,
+            })
+            .into_response(),
+            Err(e) => server_error(format!("corrupt definition: {e}")),
+        },
         Ok(None) => not_found(&id),
         Err(e) => server_error(e.to_string()),
     }
@@ -69,10 +64,17 @@ pub async fn create_workflow(
         Err(e) => return server_error(format!("serialize: {e}")),
     };
 
-    match state.db.create_workflow(&id, &name, &slug, &definition_json).await {
+    match state
+        .db
+        .create_workflow(&id, &name, &slug, &definition_json)
+        .await
+    {
         Ok(()) => {
             debug!(target: "gateflow::control", id, slug, "workflow created");
-            (StatusCode::CREATED, Json(created_detail(&id, &name, &slug, &req.definition, 1, false)))
+            (
+                StatusCode::CREATED,
+                Json(created_detail(&id, &name, &slug, &req.definition, 1, false)),
+            )
                 .into_response()
         }
         Err(e) => {
@@ -115,13 +117,18 @@ pub async fn update_workflow(
 
     let version = row.version + 1;
     debug!(target: "gateflow::control", id, slug, version, "workflow updated");
-    Json(created_detail(&id, &name, &slug, &req.definition, version, false)).into_response()
+    Json(created_detail(
+        &id,
+        &name,
+        &slug,
+        &req.definition,
+        version,
+        false,
+    ))
+    .into_response()
 }
 
-pub async fn deploy_workflow(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> Response {
+pub async fn deploy_workflow(State(state): State<AppState>, Path(id): Path<String>) -> Response {
     let row = match state.db.get_workflow(&id).await {
         Ok(Some(r)) => r,
         Ok(None) => return not_found(&id),
@@ -159,7 +166,10 @@ pub async fn deploy_workflow(
 }
 
 pub async fn healthz(State(state): State<AppState>) -> Response {
-    let db_ok = sqlx::query("SELECT 1").execute(&state.db.pool).await.is_ok();
+    let db_ok = sqlx::query("SELECT 1")
+        .execute(&state.db.pool)
+        .await
+        .is_ok();
     Json(serde_json::json!({
         "status": if db_ok { "ok" } else { "degraded" },
         "deployed_workflows": state.cache.read().await.len(),

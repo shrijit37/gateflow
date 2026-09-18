@@ -9,12 +9,12 @@
 
 use std::time::Duration;
 
+use axum::Router;
 use axum::body::{Body, Bytes};
 use axum::extract::Query;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::Router;
 use futures::StreamExt as _;
 use serde::Deserialize;
 use tokio::time::sleep;
@@ -45,9 +45,7 @@ async fn ping() -> impl IntoResponse {
 async fn chat() -> Response {
     let tick = tokio::time::interval(Duration::from_millis(40));
     let frames = IntervalStream::new(tick).take(20).map(|_| {
-        let chunk = Bytes::from(
-            "data: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\n\n",
-        );
+        let chunk = Bytes::from("data: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\n\n");
         Ok::<_, std::convert::Infallible>(chunk)
     });
 

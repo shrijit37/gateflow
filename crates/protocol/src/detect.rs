@@ -77,9 +77,7 @@ fn sniff_body(prefix: &[u8]) -> Protocol {
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    haystack
-        .windows(needle.len())
-        .any(|w| w == needle)
+    haystack.windows(needle.len()).any(|w| w == needle)
 }
 
 #[cfg(test)]
@@ -104,7 +102,8 @@ mod tests {
     #[test]
     fn anthropic_version_header() {
         let mut h = hints(b"{}");
-        h.headers.insert("anthropic-version", "2023-06-01".parse().unwrap());
+        h.headers
+            .insert("anthropic-version", "2023-06-01".parse().unwrap());
         assert_eq!(detect(&h), Protocol::Anthropic);
     }
 
@@ -118,16 +117,15 @@ mod tests {
     #[test]
     fn anthropic_bearer_token() {
         let mut h = hints(b"{}");
-        h.headers.insert(
-            "authorization",
-            "Bearer sk-ant-api03-foo".parse().unwrap(),
-        );
+        h.headers
+            .insert("authorization", "Bearer sk-ant-api03-foo".parse().unwrap());
         assert_eq!(detect(&h), Protocol::Anthropic);
     }
 
     #[test]
     fn openai_payload() {
-        let body = br#"{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+        let body =
+            br#"{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
         assert_eq!(detect(&hints(body)), Protocol::Openai);
     }
 
@@ -139,7 +137,8 @@ mod tests {
 
     #[test]
     fn gemini_payload() {
-        let body = br#"{"contents":[{"parts":[{"text":"hi"}]}],"generationConfig":{"temperature":0.7}}"#;
+        let body =
+            br#"{"contents":[{"parts":[{"text":"hi"}]}],"generationConfig":{"temperature":0.7}}"#;
         assert_eq!(detect(&hints(body)), Protocol::Gemini);
     }
 

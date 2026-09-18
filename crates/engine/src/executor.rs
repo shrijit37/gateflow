@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::dag::{validate, DagError, NodeDef, WorkflowDag};
+use crate::dag::{DagError, NodeDef, WorkflowDag, validate};
 use crate::frame::FrameStream;
 use crate::node::ExecCtx;
 use crate::node::StreamNode;
@@ -61,8 +61,8 @@ pub fn compile(
 mod tests {
     use super::*;
     use crate::dag::{Edge, NodeDef};
-    use crate::frame::{bytes_to_frames, StreamFrame};
-    use crate::node::{NodeKind, NodeError};
+    use crate::frame::{StreamFrame, bytes_to_frames};
+    use crate::node::{NodeError, NodeKind};
     use futures::StreamExt;
     use serde_json::json;
 
@@ -145,10 +145,13 @@ mod tests {
                 other => panic!("unexpected frame: {other:?}"),
             }
         }
-        assert_eq!(collected, vec![
-            bytes::Bytes::from_static(b"hello "),
-            bytes::Bytes::from_static(b"world"),
-        ]);
+        assert_eq!(
+            collected,
+            vec![
+                bytes::Bytes::from_static(b"hello "),
+                bytes::Bytes::from_static(b"world"),
+            ]
+        );
     }
 
     #[tokio::test]

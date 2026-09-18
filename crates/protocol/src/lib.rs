@@ -7,5 +7,5 @@
 pub mod detect;
 pub mod sse;
 
-pub use detect::{detect, DetectHints};
+pub use detect::{DetectHints, detect};
 pub use sse::{SseEvent, SseParser};

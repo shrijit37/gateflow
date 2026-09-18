@@ -55,7 +55,9 @@ pub enum DagError {
     #[error("cycle detected in graph; cycle nodes: {0:?}")]
     Cycle(Vec<String>),
 
-    #[error("node `{node}` has {in_degree} incoming edges and {out_degree} outgoing edges; only linear chains are supported in MVP")]
+    #[error(
+        "node `{node}` has {in_degree} incoming edges and {out_degree} outgoing edges; only linear chains are supported in MVP"
+    )]
     NotLinear {
         node: String,
         in_degree: usize,
@@ -97,7 +99,9 @@ pub fn topological_order(dag: &WorkflowDag) -> Result<Vec<NodeId>, DagError> {
             });
         }
         *indegree.get_mut(edge.to.as_str()).unwrap() += 1;
-        adj.entry(edge.from.as_str()).or_default().push(edge.to.as_str());
+        adj.entry(edge.from.as_str())
+            .or_default()
+            .push(edge.to.as_str());
     }
 
     let mut queue: VecDeque<&str> = dag
@@ -167,8 +171,16 @@ fn linearity_check(dag: &WorkflowDag) -> Result<(), DagError> {
 /// - only Ingress/Egress kinds allowed
 /// - graph is acyclic and linear (a chain)
 pub fn validate(dag: &WorkflowDag) -> Result<Vec<NodeDef>, DagError> {
-    let ingress = dag.nodes.iter().filter(|n| n.kind == NodeKind::Ingress).count();
-    let egress = dag.nodes.iter().filter(|n| n.kind == NodeKind::Egress).count();
+    let ingress = dag
+        .nodes
+        .iter()
+        .filter(|n| n.kind == NodeKind::Ingress)
+        .count();
+    let egress = dag
+        .nodes
+        .iter()
+        .filter(|n| n.kind == NodeKind::Egress)
+        .count();
     if ingress != 1 {
         return Err(DagError::IngressNotUnique(ingress));
     }
@@ -254,10 +266,7 @@ mod tests {
             }],
             edges: vec![],
         };
-        assert!(matches!(
-            validate(&dag),
-            Err(DagError::IngressNotUnique(0))
-        ));
+        assert!(matches!(validate(&dag), Err(DagError::IngressNotUnique(0))));
     }
 
     #[test]
@@ -269,10 +278,7 @@ mod tests {
             name: "e2".into(),
             config: json!({}),
         });
-        assert!(matches!(
-            validate(&dag),
-            Err(DagError::EgressNotUnique(2))
-        ));
+        assert!(matches!(validate(&dag), Err(DagError::EgressNotUnique(2))));
     }
 
     #[test]
@@ -293,8 +299,14 @@ mod tests {
                 },
             ],
             edges: vec![
-                Edge { from: "a".into(), to: "b".into() },
-                Edge { from: "b".into(), to: "a".into() },
+                Edge {
+                    from: "a".into(),
+                    to: "b".into(),
+                },
+                Edge {
+                    from: "b".into(),
+                    to: "a".into(),
+                },
             ],
         };
         assert!(matches!(validate(&dag), Err(DagError::Cycle(_))));
@@ -326,8 +338,14 @@ mod tests {
                 },
             ],
             edges: vec![
-                Edge { from: "in".into(), to: "e1".into() },
-                Edge { from: "in".into(), to: "e2".into() },
+                Edge {
+                    from: "in".into(),
+                    to: "e1".into(),
+                },
+                Edge {
+                    from: "in".into(),
+                    to: "e2".into(),
+                },
             ],
         };
         assert!(validate(&dag).is_err());
@@ -357,8 +375,14 @@ mod tests {
                 },
             ],
             edges: vec![
-                Edge { from: "in".into(), to: "cv".into() },
-                Edge { from: "cv".into(), to: "out".into() },
+                Edge {
+                    from: "in".into(),
+                    to: "cv".into(),
+                },
+                Edge {
+                    from: "cv".into(),
+                    to: "out".into(),
+                },
             ],
         };
         assert!(matches!(
@@ -384,7 +408,10 @@ mod tests {
                     config: json!({}),
                 },
             ],
-            edges: vec![Edge { from: "in".into(), to: "ghost".into() }],
+            edges: vec![Edge {
+                from: "in".into(),
+                to: "ghost".into(),
+            }],
         };
         assert!(matches!(validate(&dag), Err(DagError::UnknownNode(_))));
     }

@@ -1,7 +1,7 @@
 //! Node trait, execution context, and error type.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use http::HeaderMap;
 use tokio_util::sync::CancellationToken;

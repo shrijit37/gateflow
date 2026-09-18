@@ -10,11 +10,11 @@ use std::sync::{Arc, Mutex};
 
 use axum::body::{Body, Bytes};
 use axum::extract::{Path, State};
-use axum::http::{header, HeaderMap, Request, StatusCode};
+use axum::http::{HeaderMap, Request, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use futures::StreamExt;
 use gateflow_engine::{ExecCtx, NodeError, Protocol, StreamFrame};
-use gateflow_protocol::{detect, DetectHints};
+use gateflow_protocol::{DetectHints, detect};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, warn};
 
@@ -74,23 +74,22 @@ async fn handle_flow(state: &AppState, slug: &str, req: Request<Body>) -> Result
 
     // Body -> frames (counting bytes in).
     let ctx_counter = ctx.clone();
-    let body_frames: gateflow_engine::FrameStream = Box::pin(
-        body.into_data_stream()
-            .map(move |chunk| match chunk {
-                Ok(b) => {
-                    ctx_counter.bytes_in.fetch_add(b.len() as u64, Ordering::Relaxed);
-                    Ok(StreamFrame::Raw(b))
-                }
-                Err(e) => Err(NodeError::Node {
-                    node: "body".into(),
-                    msg: e.to_string(),
-                }),
+    let body_frames: gateflow_engine::FrameStream =
+        Box::pin(body.into_data_stream().map(move |chunk| match chunk {
+            Ok(b) => {
+                ctx_counter
+                    .bytes_in
+                    .fetch_add(b.len() as u64, Ordering::Relaxed);
+                Ok(StreamFrame::Raw(b))
+            }
+            Err(e) => Err(NodeError::Node {
+                node: "body".into(),
+                msg: e.to_string(),
             }),
-    );
+        }));
 
     let out = deployed.exe.execute(ctx.clone(), body_frames);
-    let recorder =
-        ExecutionRecorder::new(state.db.clone(), &ctx, &deployed.exe.workflow_id, slug);
+    let recorder = ExecutionRecorder::new(state.db.clone(), &ctx, &deployed.exe.workflow_id, slug);
 
     // First frame carries the upstream head (or an error).
     let connect_timeout = state.config.default_connect_timeout;
@@ -111,10 +110,10 @@ async fn handle_flow(state: &AppState, slug: &str, req: Request<Body>) -> Result
                 {
                     continue;
                 }
-                if let Ok(hname) = header::HeaderName::from_bytes(name.as_bytes()) {
-                    if let Ok(hvalue) = header::HeaderValue::from_str(&value) {
-                        builder = builder.header(hname, hvalue);
-                    }
+                if let Ok(hname) = header::HeaderName::from_bytes(name.as_bytes())
+                    && let Ok(hvalue) = header::HeaderValue::from_str(&value)
+                {
+                    builder = builder.header(hname, hvalue);
                 }
             }
             builder

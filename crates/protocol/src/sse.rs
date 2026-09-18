@@ -96,7 +96,12 @@ fn parse_frame(frame: &[u8]) -> SseEvent {
     SseEvent { event, id, data }
 }
 
-fn process_line(line: &[u8], event: &mut Option<String>, id: &mut Option<String>, data: &mut Vec<u8>) {
+fn process_line(
+    line: &[u8],
+    event: &mut Option<String>,
+    id: &mut Option<String>,
+    data: &mut Vec<u8>,
+) {
     if line.is_empty() || line[0] == b':' {
         return; // blank or comment line
     }

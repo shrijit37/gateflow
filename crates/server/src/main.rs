@@ -27,7 +27,9 @@ async fn main() -> anyhow::Result<()> {
     for row in &deployed {
         match state.deploy(row).await {
             Ok(_) => tracing::info!(slug = %row.slug, "cache-warmed workflow"),
-            Err(e) => tracing::warn!(slug = %row.slug, error = %e, "failed to warm workflow (definition changed since last deploy?)"),
+            Err(e) => {
+                tracing::warn!(slug = %row.slug, error = %e, "failed to warm workflow (definition changed since last deploy?)")
+            }
         }
     }
 

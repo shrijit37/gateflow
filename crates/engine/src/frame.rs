@@ -40,10 +40,7 @@ pub enum StreamFrame {
     /// Passthrough bytes — the overwhelmingly common frame. Zero-copy.
     Raw(Bytes),
     /// A semantic event (parsed or synthesized), e.g. an SSE event.
-    Event {
-        event: Option<String>,
-        data: Bytes,
-    },
+    Event { event: Option<String>, data: Bytes },
     /// Explicit end-of-stream sentinel emitted by a node.
     End,
     /// Emitted only by the *terminal* node as its first frame; carries the
@@ -59,7 +56,8 @@ impl StreamFrame {
 }
 
 /// Boxed, pinned stream of frames produced/consumed by every node.
-pub type FrameStream = std::pin::Pin<Box<dyn futures::Stream<Item = Result<StreamFrame, NodeError>> + Send>>;
+pub type FrameStream =
+    std::pin::Pin<Box<dyn futures::Stream<Item = Result<StreamFrame, NodeError>> + Send>>;
 
 /// Convenience: adapt an `Iterator<Item = Bytes>` into a [`FrameStream`].
 pub fn bytes_to_frames<I>(iter: I) -> FrameStream
@@ -70,9 +68,7 @@ where
 }
 
 /// Convenience: strip frames down to their raw byte payloads (terminates on End).
-pub fn frames_to_bytes<S>(
-    frames: S,
-) -> impl futures::Stream<Item = Result<Bytes, NodeError>>
+pub fn frames_to_bytes<S>(frames: S) -> impl futures::Stream<Item = Result<Bytes, NodeError>>
 where
     S: futures::Stream<Item = Result<StreamFrame, NodeError>> + Send + 'static,
 {
