@@ -67,6 +67,12 @@ impl Default for EgressConfig {
                 "authorization".into(),
                 "accept".into(),
                 "content-type".into(),
+                // Protocol-required headers: Anthropic rejects requests without
+                // `anthropic-version`, Gemini API-key auth uses `x-goog-api-key`.
+                // They are allowlisted here so passthrough works for all three
+                // LLM families without per-workflow config.
+                "anthropic-version".into(),
+                "x-goog-api-key".into(),
             ],
             forward_response_headers: vec![
                 "content-type".into(),
@@ -80,6 +86,11 @@ impl Default for EgressConfig {
     }
 }
 
+/// Request headers that describe the body / protocol version and must reach
+/// the upstream even when an older workflow's `passthrough_headers` allowlist
+/// predates them. Explicit `headers` config always wins over this forwarding.
+const ALWAYS_FORWARD_HEADERS: &[&str] = &["content-type", "anthropic-version", "x-goog-api-key"];
+
 // ---------------------------------------------------------------------------
 // Registry / factory
 // ---------------------------------------------------------------------------
@@ -88,7 +99,6 @@ impl Default for EgressConfig {
 pub struct Registry {
     pub http: reqwest::Client,
     pub default_connect_timeout: Duration,
-    pub default_timeout: Duration,
 }
 
 impl Registry {
@@ -101,7 +111,6 @@ impl Registry {
         Ok(Self {
             http,
             default_connect_timeout: config.default_connect_timeout,
-            default_timeout: config.default_timeout,
         })
     }
 }
@@ -134,7 +143,7 @@ impl NodeFactory for Registry {
                     cfg,
                     url,
                     http: self.http.clone(),
-                    default_timeout: self.default_timeout,
+                    default_connect_timeout: self.default_connect_timeout,
                 }))
             }
             other => Err(DagError::UnsupportedKind {
@@ -184,7 +193,7 @@ pub struct EgressNode {
     pub cfg: EgressConfig,
     url: reqwest::Url,
     http: reqwest::Client,
-    default_timeout: Duration,
+    default_connect_timeout: Duration,
 }
 
 impl StreamNode for EgressNode {
@@ -202,7 +211,11 @@ impl StreamNode for EgressNode {
             // Fold upstream URL with a query/path passthrough? MVP: exact URL.
             let url = this.url.clone();
 
-            // --- build request headers: explicit > passthrough ---
+            // --- build request headers: explicit > passthrough > always-forward ---
+            // `content-type` / `anthropic-version` / `x-goog-api-key` describe
+            // the body and auth and must reach the upstream even when an older
+            // workflow's allowlist predates them. `accept` defaults to SSE so
+            // reqwest never injects `*/*` on streaming upstreams.
             let method = Method::from_bytes(this.cfg.method.as_bytes())
                 .map_err(|e| NodeError::node(&this.id, format!("invalid egress method: {e}")))?;
             let mut builder = this.http.request(method, url);
@@ -210,6 +223,9 @@ impl StreamNode for EgressNode {
             for (k, v) in &this.cfg.headers {
                 builder = builder.header(k, v);
             }
+            // Track whether we set `accept` explicitly so reqwest can't fall
+            // back to its `*/*` default on streaming upstreams.
+            let mut accept_set = this.cfg.headers.contains_key("accept");
             for name in &this.cfg.passthrough_headers {
                 if this.cfg.headers.contains_key(name.as_str()) {
                     continue; // explicit wins
@@ -217,14 +233,36 @@ impl StreamNode for EgressNode {
                 if let Some(value) = ctx2.request_headers.get(name)
                     && let Ok(v) = value.to_str()
                 {
+                    if name.eq_ignore_ascii_case("accept") {
+                        accept_set = true;
+                    }
                     builder = builder.header(name, v);
                 }
             }
-            if !this.cfg.headers.contains_key("accept") && !ctx2.request_headers.contains_key("accept") {
+            for name in ALWAYS_FORWARD_HEADERS {
+                if this.cfg.headers.contains_key(*name)
+                    || this
+                        .cfg
+                        .passthrough_headers
+                        .iter()
+                        .any(|p| p.eq_ignore_ascii_case(name))
+                {
+                    continue; // already handled above
+                }
+                if let Some(value) = ctx2.request_headers.get(*name)
+                    && let Ok(v) = value.to_str()
+                {
+                    builder = builder.header(*name, v);
+                }
+            }
+            if !accept_set {
                 builder = builder.header("accept", "text/event-stream");
             }
+            // Per-workflow total timeout overrides the default; it must be
+            // able to tighten (not just loosen) the budget. When unset, the
+            // ExecCtx deadline (ingress budget) remains the single limiter.
             if let Some(c) = this.cfg.timeout_ms {
-                builder = builder.timeout(Duration::from_millis(c.max(this.default_timeout.as_millis() as u64)));
+                builder = builder.timeout(Duration::from_millis(c));
             }
 
             // --- stream the request body up ---
@@ -232,7 +270,9 @@ impl StreamNode for EgressNode {
             builder = builder.body(reqwest::Body::wrap_stream(body_frames));
 
             let connect_timeout = Duration::from_millis(
-                this.cfg.connect_timeout_ms.unwrap_or(this.default_timeout.as_millis() as u64),
+                this.cfg
+                    .connect_timeout_ms
+                    .unwrap_or(this.default_connect_timeout.as_millis() as u64),
             );
 
             let resp = tokio::time::timeout(connect_timeout, builder.send())

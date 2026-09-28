@@ -49,7 +49,7 @@ curl -s -X POST $BASE/api/workflows -H 'content-type: application/json' -d '{
        "config":{"method":"POST","protocol":"auto","timeout_ms":120000}},
       {"id":"out","kind":"egress","name":"Egress",
        "config":{"upstream_url":"http://127.0.0.1:9099/chat","method":"POST",
-                 "headers":{},"passthrough_headers":["authorization"],
+                 "headers":{},"passthrough_headers":["authorization","accept","content-type","anthropic-version","x-goog-api-key"],
                  "forward_response_headers":["content-type"],
                  "connect_timeout_ms":null,"timeout_ms":null}}
     ],

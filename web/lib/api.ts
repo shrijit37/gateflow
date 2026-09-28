@@ -132,7 +132,13 @@ export function defaultDag(): WorkflowDag {
           upstream_url: "http://127.0.0.1:9099/chat",
           method: "POST",
           headers: {},
-          passthrough_headers: ["authorization", "accept", "content-type"],
+          passthrough_headers: [
+            "authorization",
+            "accept",
+            "content-type",
+            "anthropic-version",
+            "x-goog-api-key",
+          ],
           forward_response_headers: [
             "content-type",
             "cache-control",

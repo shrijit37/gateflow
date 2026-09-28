@@ -91,11 +91,16 @@ async fn handle_flow(state: &AppState, slug: &str, req: Request<Body>) -> Result
     let out = deployed.exe.execute(ctx.clone(), body_frames);
     let recorder = ExecutionRecorder::new(state.db.clone(), &ctx, &deployed.exe.workflow_id, slug);
 
-    // First frame carries the upstream head (or an error).
-    let connect_timeout = state.config.default_connect_timeout;
-    let (first, tail) = tokio::time::timeout(connect_timeout, out.into_future())
+    // First frame carries the upstream head (or an error). Bound it by the
+    // ingress budget (the ExecCtx deadline), not the TCP connect timeout:
+    // LLM headers usually arrive fast but body upload + cold starts can
+    // exceed 10s, and the Egress node already enforces TCP connect separately.
+    let first_frame_timeout = meta.timeout;
+    let (first, tail) = tokio::time::timeout(first_frame_timeout, out.into_future())
         .await
-        .map_err(|_| format!("upstream connect timeout after {connect_timeout:?}"))?;
+        .map_err(|_| {
+            format!("upstream timeout waiting for response head after {first_frame_timeout:?}")
+        })?;
 
     match first {
         Some(Ok(StreamFrame::Head(head))) => {
@@ -192,6 +197,12 @@ impl ExecutionRecorder {
         *self.status.lock().unwrap() = Some(status);
     }
 
+    /// A head already recorded as `ok` must flip to `upstream_error` when the
+    /// body later fails; otherwise truncated streams are logged as success.
+    fn set_stream_error(&self) {
+        *self.status.lock().unwrap() = Some("upstream_error");
+    }
+
     fn record_once(&self, fallback_status: &'static str) {
         let mut done = self.done.lock().unwrap();
         if *done {
@@ -231,6 +242,12 @@ impl Drop for ExecutionRecorder {
 }
 
 /// Map the tail frame stream into an axum Body, recording completion.
+///
+/// On mid-stream failure the transport is aborted (hyper closes without the
+/// terminal chunk, so curl reports 18 / fetch rejects) and the execution is
+/// recorded as `upstream_error` — never as `ok`. No synthetic payload is
+/// injected: the response may be SSE or plain JSON and appending bytes would
+/// corrupt non-SSE bodies.
 fn frames_to_body(
     tail: gateflow_engine::FrameStream,
     recorder: ExecutionRecorder,
@@ -240,6 +257,7 @@ fn frames_to_body(
         Ok(StreamFrame::Event { data, .. }) => Ok(data),
         Ok(StreamFrame::End) | Ok(StreamFrame::Head(_)) => Ok(Bytes::new()),
         Err(e) => {
+            recorder.set_stream_error();
             recorder.record_once("upstream_error");
             warn!(target: "gateflow::dataplane", error = %e, "stream aborted mid-response");
             Err(axum::Error::new(e))
