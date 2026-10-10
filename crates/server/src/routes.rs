@@ -165,17 +165,31 @@ pub async fn deploy_workflow(State(state): State<AppState>, Path(id): Path<Strin
     }
 }
 
-pub async fn healthz(State(state): State<AppState>) -> Response {
+/// Fleet health contract: every service exposes `GET /health` returning
+/// `{status, service, version, checks}` — same request, same shape, everywhere.
+/// A failing critical check is `down` with HTTP 503, never a 200 that lies.
+pub async fn health(State(state): State<AppState>) -> Response {
     let db_ok = sqlx::query("SELECT 1")
         .execute(&state.db.pool)
         .await
         .is_ok();
-    Json(serde_json::json!({
-        "status": if db_ok { "ok" } else { "degraded" },
-        "deployed_workflows": state.cache.read().await.len(),
-        "version": env!("CARGO_PKG_VERSION"),
-    }))
-    .into_response()
+    let status = if db_ok { "ok" } else { "down" };
+    let code = if db_ok {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (
+        code,
+        Json(serde_json::json!({
+            "status": status,
+            "service": "gateflow-api",
+            "version": std::env::var("APP_VERSION")
+                .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string()),
+            "checks": { "database": if db_ok { "up" } else { "down" } },
+        })),
+    )
+        .into_response()
 }
 
 // ---------------------------------------------------------------------------

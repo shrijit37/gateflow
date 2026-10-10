@@ -32,7 +32,7 @@ pub fn build_router(state: AppState) -> Router {
 
     Router::new()
         // ---- control-plane ----
-        .route("/healthz", axum::routing::get(routes::healthz))
+        .route("/health", axum::routing::get(routes::health))
         .route(
             "/api/workflows",
             axum::routing::get(routes::list_workflows).post(routes::create_workflow),
